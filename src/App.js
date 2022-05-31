@@ -11,8 +11,10 @@ export default function App() {
   const checkIfWalletIsConnected = async () => {
     try {
       const { ethereum } = window;
+
       if (!ethereum) {
         console.log("Make sure you have metamask!");
+        return;
       } else {
         console.log("ethereum object", ethereum);
       }
@@ -100,6 +102,16 @@ export default function App() {
         <div className="bio">
           I am wesley and I'm learning web3 so that's pretty cool right? Connect
           your Ethereum wallet and wave at me!
+        </div>
+
+        <div className="contract-link">
+          <a
+            target="_blank"
+            rel="noreferrer"
+            href="https://rinkeby.etherscan.io/address/0x422Eb9F1b6dCEd3d80B4118DFAe6Ee3cBc168305"
+          >
+            Check the contract at Etherscan.io
+          </a>
         </div>
 
         {!currentAccount ? (
