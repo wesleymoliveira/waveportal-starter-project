@@ -9,7 +9,7 @@ export default function App() {
   const [msg, setMsg] = useState([]);
   const [totalWaves, setTotalWaves] = useState();
 
-  const contractAddress = "0x2BdbD34E0D1a8d430B110b999d8c007e81549384";
+  const contractAddress = "0x77A99C88D105104C5217eBe268812C8910255E1B";
   const contractABI = abi.abi;
 
   const checkIfWalletIsConnected = async () => {
@@ -106,7 +106,9 @@ export default function App() {
           signer
         );
 
-        const waveTxn = await wavePortalContract.wave(msg);
+        const waveTxn = await wavePortalContract.wave(msg, {
+          gasLimit: 300000,
+        });
         console.log("Mining...", waveTxn.hash);
 
         await waveTxn.wait();
