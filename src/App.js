@@ -1,11 +1,15 @@
 import { ethers } from "ethers";
 import React, { useEffect, useState } from "react";
 import "./App.css";
-import abi from "./utils/WavePortal.json";
+import abi from "./utils/WavePortalABI.json";
 
 export default function App() {
   const [currentAccount, setCurrentAccount] = useState("");
-  const contractAddress = "0x422Eb9F1b6dCEd3d80B4118DFAe6Ee3cBc168305";
+  const [allWaves, setAllWaves] = useState([]);
+  const [msg, setMsg] = useState([]);
+  const [totalWaves, setTotalWaves] = useState();
+
+  const contractAddress = "0xf2d23AA7CECC90073146026d374bc5322994b413";
   const contractABI = abi.abi;
 
   const checkIfWalletIsConnected = async () => {
@@ -27,6 +31,42 @@ export default function App() {
         setCurrentAccount(account);
       } else {
         console.log("No authorized account found");
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const getAllWaves = async () => {
+    try {
+      const { ethereum } = window;
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const wavePortalContract = new ethers.Contract(
+          contractAddress,
+          contractABI,
+          signer
+        );
+
+        const waves = await wavePortalContract.getAllWaves();
+        const count = await wavePortalContract.getTotalWaves();
+
+        setTotalWaves(count.toNumber());
+
+        let wavesCleaned = [];
+        waves.forEach((wave) => {
+          wavesCleaned.push({
+            address: wave.waver,
+            timestamp: new Date(wave.timestamp * 1000),
+            message: wave.message,
+          });
+        });
+
+        setAllWaves(wavesCleaned);
+      } else {
+        console.log("Ethereum object doesn't exist!");
       }
     } catch (error) {
       console.log(error);
@@ -66,17 +106,15 @@ export default function App() {
           signer
         );
 
-        let count = await wavePortalContract.getTotalWaves();
-        console.log("Retrieved total wave count...", count.toNumber());
-
-        const waveTxn = await wavePortalContract.wave();
+        const waveTxn = await wavePortalContract.wave(msg);
         console.log("Mining...", waveTxn.hash);
 
         await waveTxn.wait();
         console.log("Mined -- ", waveTxn.hash);
 
-        count = await wavePortalContract.getTotalWaves();
+        const count = await wavePortalContract.getTotalWaves();
         console.log("Retrieved total wave count...", count.toNumber());
+        setTotalWaves(count.toNumber());
       } else {
         console.log("Ethereum object doesn't exist!");
       }
@@ -84,6 +122,10 @@ export default function App() {
       console.log(error);
     }
   };
+
+  useEffect(() => {
+    getAllWaves();
+  }, [totalWaves, getAllWaves]);
 
   useEffect(() => {
     checkIfWalletIsConnected();
@@ -107,11 +149,25 @@ export default function App() {
         <div className="contract-link">
           <a
             target="_blank"
-            rel="noreferrer"
-            href="https://rinkeby.etherscan.io/address/0x422Eb9F1b6dCEd3d80B4118DFAe6Ee3cBc168305"
+            rel="noopener noreferrer"
+            href={`https://rinkeby.etherscan.io/address/${contractAddress}`}
           >
             Check the contract at Etherscan.io
           </a>
+        </div>
+
+        {totalWaves > 0 && (
+          <div className="count">{`Total waves: ${totalWaves}`}</div>
+        )}
+
+        <div className="input">
+          <input
+            name="msg"
+            type="text"
+            placeholder="type your message here..."
+            value={msg}
+            onChange={(e) => setMsg(e.target.value)}
+          />
         </div>
 
         {!currentAccount ? (
@@ -123,6 +179,20 @@ export default function App() {
             Wave at Me
           </button>
         )}
+        {allWaves
+          .sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1))
+          .map((wave, index) => {
+            return (
+              <div key={index}>
+                <hr className="dashed" />
+                <div className="waves">
+                  <div>Address: {wave.address}</div>
+                  <div>Time: {wave.timestamp.toString()}</div>
+                  <div>Message: {wave.message}</div>
+                </div>
+              </div>
+            );
+          })}
       </div>
     </div>
   );
