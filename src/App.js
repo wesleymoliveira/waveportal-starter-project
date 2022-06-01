@@ -49,6 +49,7 @@ export default function App() {
     };
     getAllWaves();
   }, [contractABI]);
+
   const checkIfWalletIsConnected = useCallback(() => {
     const check = async () => {
       try {
@@ -170,7 +171,7 @@ export default function App() {
 
   useEffect(() => {
     checkIfWalletIsConnected();
-  }, [checkIfWalletIsConnected]);
+  }, [checkIfWalletIsConnected, currentAccount]);
 
   return (
     <div className="mainContainer">
