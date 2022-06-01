@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import "./App.css";
 import abi from "./utils/WavePortalABI.json";
 
@@ -9,69 +9,116 @@ export default function App() {
   const [msg, setMsg] = useState([]);
   const [totalWaves, setTotalWaves] = useState();
 
-  const contractAddress = "0x77A99C88D105104C5217eBe268812C8910255E1B";
+  const contractAddress = "0xd92d79AD8Ecd0744cF0a7CFeF7A83B667eBF7Fa7";
   const contractABI = abi.abi;
 
-  const checkIfWalletIsConnected = async () => {
-    try {
-      const { ethereum } = window;
+  const getWaves = useCallback(() => {
+    const getAllWaves = async () => {
+      try {
+        const { ethereum } = window;
+        if (ethereum) {
+          const provider = new ethers.providers.Web3Provider(ethereum);
+          const signer = provider.getSigner();
+          const wavePortalContract = new ethers.Contract(
+            contractAddress,
+            contractABI,
+            signer
+          );
 
-      if (!ethereum) {
-        console.log("Make sure you have metamask!");
-        return;
-      } else {
-        console.log("ethereum object", ethereum);
-      }
+          const waves = await wavePortalContract.getAllWaves();
+          const count = await wavePortalContract.getTotalWaves();
 
-      const accounts = await ethereum.request({ method: "eth_accounts" });
+          setTotalWaves(count.toNumber());
 
-      if (accounts.length !== 0) {
-        const account = accounts[0];
-        console.log("Found an authorized account:", account);
-        setCurrentAccount(account);
-      } else {
-        console.log("No authorized account found");
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const getAllWaves = async () => {
-    try {
-      const { ethereum } = window;
-      if (ethereum) {
-        const provider = new ethers.providers.Web3Provider(ethereum);
-        const signer = provider.getSigner();
-        const wavePortalContract = new ethers.Contract(
-          contractAddress,
-          contractABI,
-          signer
-        );
-
-        const waves = await wavePortalContract.getAllWaves();
-        const count = await wavePortalContract.getTotalWaves();
-
-        setTotalWaves(count.toNumber());
-
-        let wavesCleaned = [];
-        waves.forEach((wave) => {
-          wavesCleaned.push({
-            address: wave.waver,
-            timestamp: new Date(wave.timestamp * 1000),
-            message: wave.message,
+          let wavesCleaned = [];
+          waves.forEach((wave) => {
+            wavesCleaned.push({
+              address: wave.waver,
+              timestamp: new Date(wave.timestamp * 1000),
+              message: wave.message,
+            });
           });
-        });
 
-        setAllWaves(wavesCleaned);
-      } else {
-        console.log("Ethereum object doesn't exist!");
+          setAllWaves(wavesCleaned);
+        } else {
+          console.log("Ethereum object doesn't exist!");
+        }
+      } catch (error) {
+        console.log(error);
       }
-    } catch (error) {
-      console.log(error);
+    };
+    getAllWaves();
+  }, [contractABI]);
+  const checkIfWalletIsConnected = useCallback(() => {
+    const check = async () => {
+      try {
+        const { ethereum } = window;
+
+        if (!ethereum) {
+          console.log("Make sure you have metamask!");
+          return;
+        } else {
+          console.log("ethereum object", ethereum);
+        }
+
+        const accounts = await ethereum.request({ method: "eth_accounts" });
+
+        if (accounts.length !== 0) {
+          const account = accounts[0];
+          console.log("Found an authorized account:", account);
+          setCurrentAccount(account);
+          getWaves();
+        } else {
+          console.log("No authorized account found");
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    };
+    check();
+  }, [getWaves]);
+
+  useEffect(() => {
+    let wavePortalContract;
+
+    const onNewWave = (from, timestamp, message) => {
+      console.log("NewWave", from, timestamp, message);
+      setAllWaves((prevState) => [
+        ...prevState,
+        {
+          address: from,
+          timestamp: new Date(timestamp * 1000),
+          message: message,
+        },
+      ]);
+    };
+
+    const onTotalWaves = (total) => {
+      console.log("TotalWaves", total);
+      setTotalWaves(total.toNumber());
+    };
+
+    if (window.ethereum) {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+
+      wavePortalContract = new ethers.Contract(
+        contractAddress,
+        contractABI,
+        signer
+      );
+
+      wavePortalContract.on("NewWave", onNewWave);
+      wavePortalContract.on("TotalWaves", onTotalWaves);
     }
-  };
+
+    return () => {
+      if (wavePortalContract) {
+        wavePortalContract.off("NewWave", onNewWave);
+        wavePortalContract.off("TotalWaves", onTotalWaves);
+      }
+    };
+  }, [contractABI]);
 
   const connectWallet = async () => {
     try {
@@ -113,10 +160,6 @@ export default function App() {
 
         await waveTxn.wait();
         console.log("Mined -- ", waveTxn.hash);
-
-        const count = await wavePortalContract.getTotalWaves();
-        console.log("Retrieved total wave count...", count.toNumber());
-        setTotalWaves(count.toNumber());
       } else {
         console.log("Ethereum object doesn't exist!");
       }
@@ -126,12 +169,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    getAllWaves();
-  }, [totalWaves, getAllWaves]);
-
-  useEffect(() => {
     checkIfWalletIsConnected();
-  }, []);
+  }, [checkIfWalletIsConnected]);
 
   return (
     <div className="mainContainer">
